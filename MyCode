@@ -1,0 +1,113 @@
+#include <LiquidCrystal.h>
+#include <DHT.h>
+#include <Adafruit_Sensor.h>  // Include the Adafruit Sensor library
+
+// Pin configurations for LCD
+const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2, ct = 9;
+LiquidCrystal mylcd(rs, en, d4, d5, d6, d7);
+
+// Pin configurations for sensor and relay
+int sensor_pin = A0; // Sensor Pin
+int relay_pin = 7;   // Relay Pin
+
+// Pin configuration for DHT sensor
+#define DHTPIN 8     // Digital pin connected to the DHT sensor
+#define DHTTYPE DHT11   // DHT 11 (you can also use DHT22 if you have that sensor)
+
+// Initialize DHT sensor
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup()
+{
+  // Initialize serial communication for debugging
+  Serial.begin(9600);
+  
+  // Initialize the LCD with 16 columns and 2 rows
+  mylcd.begin(16, 2);
+  
+  // Display initial message on the LCD
+  mylcd.print("IRRIGATION SYSTEM");
+  
+  // Set the contrast of the LCD
+  analogWrite(ct, 50);
+  
+  // Set pin modes for sensor and relay
+  pinMode(sensor_pin, INPUT);
+  pinMode(relay_pin, OUTPUT);
+  
+  // Initialize DHT sensor
+  dht.begin();
+  
+  // Wait a moment to let everything stabilize
+  delay(2000);
+}
+
+void loop()
+{
+  // Read sensor data
+  int sensor_data = analogRead(sensor_pin);
+  
+  // Print sensor data to serial monitor for debugging
+  Serial.print("Sensor_data:");
+  Serial.print(sensor_data);
+  Serial.print("\t");
+  
+  // Read temperature and humidity from DHT sensor
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+  
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  
+  // Print temperature and humidity to serial monitor for debugging
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.print(" %\t");
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.println(" *C");
+  
+  // Clear the LCD before updating it
+  mylcd.clear();
+  
+  // Display temperature and humidity on the LCD
+  mylcd.setCursor(0, 1);
+  mylcd.print("T:");
+  mylcd.print(temperature);
+  mylcd.print("C ");
+  mylcd.print("H:");
+  mylcd.print(humidity);
+  mylcd.print("%");
+
+  // Determine soil moisture level and control relay accordingly
+  if (sensor_data > 950)
+  {
+    // Soil is dry
+    Serial.println("Soil Dry");
+    digitalWrite(relay_pin, HIGH); // Turn off relay
+    mylcd.setCursor(0, 0);
+    mylcd.print("Soil Dry    ");
+  }
+  else if (sensor_data >= 400 && sensor_data <= 950)
+  {
+    // Soil moisture is medium
+    Serial.println("Soil Moist");
+    digitalWrite(relay_pin, LOW); // Turn on relay
+    mylcd.setCursor(0, 0);
+    mylcd.print("Soil Moist  ");
+  }
+  else if (sensor_data < 400)
+  {
+    // Soil is wet
+    Serial.println("Soil Wet");
+    digitalWrite(relay_pin, LOW); // Turn on relay
+    mylcd.setCursor(0, 0);
+    mylcd.print("Soil Wet    ");
+  }
+
+  // Delay to stabilize readings
+  delay(2000);
+}
